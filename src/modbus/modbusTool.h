@@ -71,18 +71,20 @@ static const uint8_t table_crc_lo[] = {
 
 static uint16_t crc16(uint8_t* buffer, uint16_t buffer_length)
 {
-	uint8_t crc_hi = 0xFF; /* high CRC byte initialized */
-	uint8_t crc_lo = 0xFF; /* low CRC byte initialized */
-	unsigned int i; /* will index into CRC lookup */
+	uint8_t crc_hi = 0xFF;	/*已初始化高CRC字节*/
+	uint8_t crc_lo = 0xFF;	/*低CRC字节已初始化*/
+	unsigned int i;			/*将索引到CRC查找中*/
 
 	/* pass through message buffer */
-	while (buffer_length--) {
+	while (buffer_length--) 
+	{
 		i = crc_hi ^ *buffer++; /* calculate the CRC  */
 		crc_hi = crc_lo ^ table_crc_hi[i];
 		crc_lo = table_crc_lo[i];
 	}
 
-	return (crc_hi << 8 | crc_lo);
+	uint16_t res_crc = (crc_hi << 8 | crc_lo);
+	return res_crc;
 }
 
 
@@ -321,7 +323,7 @@ private:
 		{
 			modbus_reply(context, queryBuffer, 8, mapping);
 		}
-		else 
+		else
 		{
 			modbus_reply_exception(context, queryBuffer, MODBUS_EXCEPTION_ILLEGAL_DATA_ADDRESS);
 		}
@@ -333,13 +335,13 @@ private:
 
 	}
 
-	uint16_t readHoldingRegister(uint16_t registerAddress) 
+	uint16_t readHoldingRegister(uint16_t registerAddress)
 	{
 		// 实现读寄存器功能
 		return 0;
 	}
 
-	bool readDiscreteInput(uint16_t inputAddress) 
+	bool readDiscreteInput(uint16_t inputAddress)
 	{
 		// 实现读线圈功能
 		return false;
@@ -350,7 +352,7 @@ public:
 	ModbusSlave(uint8_t serverId, uint16_t registersNbMax)
 		: serverId(serverId), registersNbMax(registersNbMax), context(nullptr), queryBuffer(nullptr), mapping(nullptr) {}
 
-	~ModbusSlave() 
+	~ModbusSlave()
 	{
 		this->cleanup();
 	}
@@ -403,11 +405,11 @@ public:
 		}
 	}
 
-	void handleRequest(uint8_t* request, int length) 
+	void handleRequest(uint8_t* request, int length)
 	{
-		if (length >= 8) 
+		if (length >= 8)
 		{
-			
+
 			//uint8_t functionCode = request[1];
 			//uint16_t address = (request[2] << 8) | request[3];
 
@@ -422,7 +424,7 @@ public:
 				mapping->tab_registers[i - 1] = i;
 			}
 
-			switch (function_code) 
+			switch (function_code)
 			{
 			case MODBUS_FC_READ_COILS:
 				// 调用writeCoil函数
@@ -444,7 +446,7 @@ public:
 		}
 	}
 
-	void cleanup() 
+	void cleanup()
 	{
 		if (mapping)
 		{
