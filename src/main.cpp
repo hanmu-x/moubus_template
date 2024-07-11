@@ -6,10 +6,14 @@
 
 #include <iostream>
 #include <modbus.h>
+#include <errno.h>
+
 
 #define SERVER_ID 1
-#define UT_REGISTERS_ADDRESS 0
-#define UT_REGISTERS_NB_MAX 10
+#define MD_COILS_MAX 10
+#define MD_INPUT_COILS_MAX 10
+#define MD_REGISTERS_MAX 10
+#define MD_INPUT_REGISTERS_MAX 10
 
 #include <thread>
 
@@ -62,8 +66,8 @@ int main()
         return EXIT_FAILURE;
     }
 
-    // 创建Modbus映射，定义了保持寄存器的数量为UT_REGISTERS_NB_MAX
-    mapping = modbus_mapping_new(0, 0, UT_REGISTERS_NB_MAX, 0);
+    // 创建Modbus映射，定义了保持寄存器的数量为MD_REGISTERS_MAX
+    mapping = modbus_mapping_new(MD_COILS_MAX, MD_INPUT_COILS_MAX, MD_REGISTERS_MAX, MD_INPUT_REGISTERS_MAX);
     if (mapping == NULL) 
     {
         fprintf(stderr, "Failed to allocate Modbus mapping: %s\n", modbus_strerror(errno));
@@ -116,17 +120,35 @@ int main()
             }
 
             uint16_t res_crc = crc16(query, ret - 2);
+            uint16_t value;
 
             switch (function_code) 
             {
+            case MODBUS_FC_READ_COILS:
+                if (startAddress >= 0 && startAddress < MD_COILS_MAX)
+                {
+                    if (startAddress == 0 && endAddress >= 10)
+                    {
+                        // 线圈数值: 0101010101
+                        for (int i = 0; i < 10; ++i) 
+                        {
+                            mapping->tab_bits[startAddress + i] = i % 2;
+                        }
+                    }
+                    modbus_reply(ctx, query, ret, mapping);
+                }
+                else {
+                    modbus_reply_exception(ctx, query, MODBUS_EXCEPTION_ILLEGAL_DATA_ADDRESS);
+                }
+                break;
             case MODBUS_FC_READ_HOLDING_REGISTERS: // 0x03 // // 主机是03读取寄存器,这里就应该是写寄存器 
                 
                 // 写入保持寄存器
                 // 检查地址是否在有效范围内
-                if (startAddress >= 0 && startAddress < UT_REGISTERS_NB_MAX)
+                if (startAddress >= 0 && startAddress < MD_REGISTERS_MAX)
                 {
                     // 将0~9 写入1~10
-                    for (int i = 1; i <= UT_REGISTERS_NB_MAX; i++)
+                    for (int i = 1; i <= MD_REGISTERS_MAX; i++)
                     {
                         mapping->tab_registers[i-1] = i;
                     }
@@ -141,16 +163,16 @@ int main()
                 break;
 
             case MODBUS_FC_WRITE_SINGLE_REGISTER: // 0x06
-                
+          
                 // 获取读取寄存器的起始地址
-                if (startAddress >= 0 && startAddress < UT_REGISTERS_NB_MAX)
+                if (startAddress >= 0 && startAddress < MD_REGISTERS_MAX)
                 {
                     // 读取保持寄存器的值
                     uint16_t num_registers = (query[4] << 8) | query[5]; // 要读取的寄存器数量
                     uint8_t response_length = 1 + num_registers * 2; // 响应长度
 
                     // 确保请求的寄存器数量在有效范围内
-                    if (num_registers > 0 && num_registers <= UT_REGISTERS_NB_MAX - startAddress)
+                    if (num_registers > 0 && num_registers <= MD_REGISTERS_MAX - startAddress)
                     {
                         // 构造响应报文
                         query[2] = response_length - 1; // 更新响应长度字段
