@@ -16,7 +16,7 @@
 #define MD_INPUT_REGISTERS_MAX 10
 
 #include <thread>
-
+#include <chrono> // 操作时间
 
 
 // 假设ModbusSlave类和其他必要的头文件已经被包含
@@ -124,7 +124,7 @@ int main()
 
             switch (function_code) 
             {
-            case MODBUS_FC_READ_COILS:
+            case MODBUS_FC_READ_COILS:  // 主机为01读线圈, 这里从机写线圈
                 if (startAddress >= 0 && startAddress < MD_COILS_MAX)
                 {
                     if (startAddress == 0 && endAddress >= 10)
@@ -141,7 +141,7 @@ int main()
                     modbus_reply_exception(ctx, query, MODBUS_EXCEPTION_ILLEGAL_DATA_ADDRESS);
                 }
                 break;
-            case MODBUS_FC_READ_HOLDING_REGISTERS: // 0x03 // // 主机是03读取寄存器,这里就应该是写寄存器 
+            case MODBUS_FC_READ_HOLDING_REGISTERS: // 主机是03读取寄存器,这里从机写寄存器 
                 
                 // 写入保持寄存器
                 // 检查地址是否在有效范围内
@@ -161,9 +161,45 @@ int main()
                     modbus_reply_exception(ctx, query, MODBUS_EXCEPTION_ILLEGAL_DATA_ADDRESS);
                 }
                 break;
+            case MODBUS_FC_WRITE_MULTIPLE_COILS:
+                if (startAddress >= 0 && startAddress < MD_COILS_MAX)
+                {
+                    modbus_reply(ctx, query, ret, mapping);
+                    // 这里我们不执行实际的写入操作，而是直接读取线圈状态并打印
+                    for (int i = 0; i < endAddress; i++)
+                    {
+                        int bitValue = mapping->tab_bits[startAddress + i];
+                        printf("Coil %d: %d\n", startAddress + i, bitValue);
+                    }
+                    printf("=================================\n");
+                    std::this_thread::sleep_for(std::chrono::seconds(3));
+                }
+                else
+                {
+                    modbus_reply_exception(ctx, query, MODBUS_EXCEPTION_ILLEGAL_DATA_ADDRESS);
+                }
+                break;
+            case MODBUS_FC_WRITE_MULTIPLE_REGISTERS:
+                if (startAddress >= 0 && startAddress < MD_COILS_MAX)
+                {
+                    modbus_reply(ctx, query, ret, mapping);
+                    // 这里我们不执行实际的写入操作，而是直接读取线圈状态并打印
+                    for (int i = 0; i < endAddress; i++)
+                    {
+                        int bitValue = mapping->tab_registers[startAddress + i];
+                        printf("Register %d: %d\n", startAddress + i, bitValue);
+                    }
+                    printf("=================================\n");
+                    std::this_thread::sleep_for(std::chrono::seconds(3));
+                }
+                else
+                {
+                    modbus_reply_exception(ctx, query, MODBUS_EXCEPTION_ILLEGAL_DATA_ADDRESS);
+                }
+                break;
+
 
             case MODBUS_FC_WRITE_SINGLE_REGISTER: // 0x06
-          
                 // 获取读取寄存器的起始地址
                 if (startAddress >= 0 && startAddress < MD_REGISTERS_MAX)
                 {
