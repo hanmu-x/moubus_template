@@ -13,9 +13,7 @@
 #include <thread>
 #include <chrono> // 操作时间
 
-
-// 假设ModbusSlave类和其他必要的头文件已经被包含
-
+// 从机测试
 int main() 
 {
     // 创建ModbusSlave实例，服务器ID为1，最多有100个寄存器

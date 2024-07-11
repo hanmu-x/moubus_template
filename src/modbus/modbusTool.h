@@ -470,6 +470,7 @@ private:
 	{
 		if (startAddress >= 0 && startAddress < MD_COILS_MAX)
 		{
+			modbus_reply(ctx_, query_, ret, mapping_);
 			for (int i = 0; i < endAddress; i++)
 			{
 				int bitValue = mapping_->tab_bits[startAddress + i];
@@ -477,7 +478,6 @@ private:
 			}
 			std::cout << "=================================\n";
 			std::this_thread::sleep_for(std::chrono::seconds(3));
-			modbus_reply(ctx_, query_, ret, mapping_);
 		}
 		else
 		{
@@ -489,6 +489,7 @@ private:
 	{
 		if (startAddress >= 0 && startAddress < MD_REGISTERS_MAX)
 		{
+			modbus_reply(ctx_, query_, ret, mapping_);
 			for (int i = 0; i < endAddress; i++)
 			{
 				int registerValue = mapping_->tab_registers[startAddress + i];
@@ -496,7 +497,6 @@ private:
 			}
 			std::cout << "=================================\n";
 			std::this_thread::sleep_for(std::chrono::seconds(3));
-			modbus_reply(ctx_, query_, ret, mapping_);
 		}
 		else
 		{
