@@ -302,168 +302,387 @@ public:
 
 
 
+#define SERVER_ID 1
+#define MD_COILS_MAX 10
+#define MD_INPUT_COILS_MAX 10
+#define MD_REGISTERS_MAX 10
+#define MD_INPUT_REGISTERS_MAX 10
+
 class ModbusSlave
 {
 private:
-	modbus_t* context;
-	uint8_t* queryBuffer;
-	modbus_mapping_t* mapping;
+	modbus_t* ctx_;
+	uint8_t* query_;
+	modbus_mapping_t* mapping_;
+	bool running_;
+	int ret;
 	const uint16_t registersNbMax;
 	const uint8_t serverId;
 
-	/// <summary>
-	/// 写入数据到寄存器,
-	/// 对应主机功能码为度寄存器(03),主机是读,这里就是写
-	/// </summary>
-	/// <param name="startAddress"></param>
-	/// <param name="mapping"></param>
-	void writeHoldingRegisters(uint16_t startAddress, modbus_mapping_t* mapping)
-	{
-		if (startAddress >= 0 && startAddress < registersNbMax)
-		{
-			modbus_reply(context, queryBuffer, 8, mapping);
-		}
-		else
-		{
-			modbus_reply_exception(context, queryBuffer, MODBUS_EXCEPTION_ILLEGAL_DATA_ADDRESS);
-		}
-	}
-
-	// 预留的函数框架
-	void writeCoil(uint16_t startAddress, bool value)
-	{
-
-	}
-
-	uint16_t readHoldingRegister(uint16_t registerAddress)
-	{
-		// 实现读寄存器功能
-		return 0;
-	}
-
-	bool readDiscreteInput(uint16_t inputAddress)
-	{
-		// 实现读线圈功能
-		return false;
-	}
 
 public:
-
-	ModbusSlave(uint8_t serverId, uint16_t registersNbMax)
-		: serverId(serverId), registersNbMax(registersNbMax), context(nullptr), queryBuffer(nullptr), mapping(nullptr) {}
+	ModbusSlave(uint8_t serverId, uint16_t registersNbMax) : serverId(serverId), registersNbMax(registersNbMax), ctx_(nullptr), query_(nullptr), mapping_(nullptr), running_(false) {}
 
 	~ModbusSlave()
 	{
-		this->cleanup();
+		stop();
+		cleanup();
 	}
 
-	void initialize(const char* port, int baudrate, char parity, int databits, int stopbits)
+	void start()
 	{
-		if (!context)
-		{
-			context = modbus_new_rtu(port, baudrate, parity, databits, stopbits);
-			if (!context)
-			{
-				std::cout << "Failed to create Modbus context: " << modbus_strerror(errno) << std::endl;
-				return;
-			}
-			modbus_set_slave(context, serverId);
-			queryBuffer = (uint8_t*)malloc(MODBUS_RTU_MAX_ADU_LENGTH);
-			if (!queryBuffer)
-			{
-				std::cout << "Failed to allocate memory for query buffer" << std::endl;
-				return;
-			}
-			mapping = modbus_mapping_new(0, 0, registersNbMax, 0);
-			if (!mapping)
-			{
-				std::cout << "Failed to allocate Modbus mapping: " << modbus_strerror(errno) << std::endl;
-				return;
-			}
-			if (modbus_connect(context) == -1)
-			{
-				std::cout << "Connection failed: " << modbus_strerror(errno) << std::endl;
-				return;
-			}
-		}
+		running_ = true;
+		std::thread(&ModbusSlave::run, this).detach();
 	}
 
-	void handleRequests()
+	void stop()
 	{
-		while (true)
-		{
-			int ret = modbus_receive(context, queryBuffer);
-			if (ret == -1)
-			{
-				std::cout << "Receive error: " << modbus_strerror(errno) << std::endl;
-				break;
-			}
-			else
-			{
-				handleRequest(queryBuffer, ret);
-			}
-		}
-	}
-
-	void handleRequest(uint8_t* request, int length)
-	{
-		if (length >= 8)
-		{
-
-			//uint8_t functionCode = request[1];
-			//uint16_t address = (request[2] << 8) | request[3];
-
-			uint8_t slaveId = request[0];
-			uint8_t function_code = request[1]; // 获取Modbus功能码
-			uint16_t startAddress = (request[2] << 8) | request[3]; // 获取寄存器地址
-			uint16_t endAddress = (request[4] << 8) | request[5]; // 获取写入的值
-			uint16_t crc = (request[6] << 8) | request[7]; // 获取写入的值
-
-			for (int i = 1; i <= registersNbMax; i++)
-			{
-				mapping->tab_registers[i - 1] = i;
-			}
-
-			switch (function_code)
-			{
-			case MODBUS_FC_READ_COILS:
-				// 调用writeCoil函数
-
-				break;
-			case MODBUS_FC_READ_HOLDING_REGISTERS:   // 主机是03读取寄存器,这里就应该是写寄存器 
-				writeHoldingRegisters(startAddress, mapping);
-				break;
-			case MODBUS_FC_WRITE_SINGLE_REGISTER:
-				// 调用readHoldingRegister函数
-				break;
-			case MODBUS_FC_READ_DISCRETE_INPUTS:
-				// 调用readDiscreteInput函数
-				break;
-			default:
-				modbus_reply_exception(context, request, MODBUS_EXCEPTION_ILLEGAL_FUNCTION);
-				break;
-			}
-		}
+		running_ = false;
 	}
 
 	void cleanup()
 	{
-		if (mapping)
+		if (mapping_)
+			modbus_mapping_free(mapping_);
+		if (query_)
+			free(query_);
+		if (ctx_)
 		{
-			modbus_mapping_free(mapping);
-		}
-		if (queryBuffer)
-		{
-			free(queryBuffer);
-		}
-		if (context)
-		{
-			modbus_close(context);
-			modbus_free(context);
+			modbus_close(ctx_);
+			modbus_free(ctx_);
 		}
 	}
 
+	void initialize(const char* port, int baudrate, char parity, int databits, int stopbits)
+	{
+		//    ctx = modbus_new_rtu("COM6", 9600, 'N', 8, 1);
+		ctx_ = modbus_new_rtu(port, baudrate, parity, databits, stopbits);
+		if (!ctx_)
+		{
+			std::cerr << "Failed to create Modbus context: " << modbus_strerror(errno) << std::endl;
+			exit(EXIT_FAILURE);
+		}
+
+		modbus_set_slave(ctx_, SERVER_ID);
+		query_ = reinterpret_cast<uint8_t*>(malloc(MODBUS_RTU_MAX_ADU_LENGTH));
+		if (!query_)
+		{
+			std::cerr << "Failed to allocate memory for query buffer" << std::endl;
+			exit(EXIT_FAILURE);
+		}
+
+		mapping_ = modbus_mapping_new(MD_COILS_MAX, MD_INPUT_COILS_MAX, MD_REGISTERS_MAX, MD_INPUT_REGISTERS_MAX);
+		if (!mapping_)
+		{
+			std::cerr << "Failed to allocate Modbus mapping: " << modbus_strerror(errno) << std::endl;
+			exit(EXIT_FAILURE);
+		}
+
+		if (modbus_connect(ctx_) == -1)
+		{
+			std::cerr << "Connection failed: " << modbus_strerror(errno) << std::endl;
+			exit(EXIT_FAILURE);
+		}
+	}
+
+private:
+
+	void run()
+	{
+		while (running_)
+		{
+			ret = modbus_receive(ctx_, query_);
+			if (ret == -1)
+			{
+				std::cerr << "Receive error: " << modbus_strerror(errno) << std::endl;
+				break;
+			}
+			else
+			{
+				processRequest(ret);
+			}
+		}
+	}
+
+	void processRequest(int ret)
+	{
+		if (ret >= 8)
+		{
+			uint8_t slaveId = query_[0];
+			uint8_t function_code = query_[1];
+			uint16_t startAddress = (query_[2] << 8) | query_[3];
+			uint16_t endAddress = (query_[4] << 8) | query_[5];
+
+			switch (function_code)
+			{
+			case MODBUS_FC_READ_COILS:
+				handleReadCoils(startAddress);
+				break;
+			case MODBUS_FC_READ_HOLDING_REGISTERS:
+				handleReadHoldingRegisters(startAddress);
+				break;
+			case MODBUS_FC_WRITE_MULTIPLE_COILS:
+				handleWriteMultipleCoils(startAddress, endAddress);
+				break;
+			case MODBUS_FC_WRITE_MULTIPLE_REGISTERS:
+				handleWriteMultipleRegisters(startAddress, endAddress);
+				break;
+			default:
+				modbus_reply_exception(ctx_, query_, MODBUS_EXCEPTION_ILLEGAL_FUNCTION);
+				break;
+			}
+		}
+	}
+
+	void handleReadCoils(uint16_t startAddress)
+	{
+		if (startAddress >= 0 && startAddress < MD_COILS_MAX)
+		{
+			for (int i = 0; i < 10; ++i)
+			{
+				mapping_->tab_bits[startAddress + i] = i % 2;
+			}
+			modbus_reply(ctx_, query_, ret, mapping_);
+		}
+		else
+		{
+			modbus_reply_exception(ctx_, query_, MODBUS_EXCEPTION_ILLEGAL_DATA_ADDRESS);
+		}
+	}
+
+	void handleReadHoldingRegisters(uint16_t startAddress)
+	{
+		if (startAddress >= 0 && startAddress < MD_REGISTERS_MAX)
+		{
+			for (int i = 1; i <= MD_REGISTERS_MAX; i++)
+			{
+				mapping_->tab_registers[i - 1] = i;
+			}
+			modbus_reply(ctx_, query_, ret, mapping_);
+		}
+		else
+		{
+			modbus_reply_exception(ctx_, query_, MODBUS_EXCEPTION_ILLEGAL_DATA_ADDRESS);
+		}
+	}
+
+	void handleWriteMultipleCoils(uint16_t startAddress, uint16_t endAddress)
+	{
+		if (startAddress >= 0 && startAddress < MD_COILS_MAX)
+		{
+			for (int i = 0; i < endAddress; i++)
+			{
+				int bitValue = mapping_->tab_bits[startAddress + i];
+				std::cout << "Coil " << startAddress + i << ": " << bitValue << std::endl;
+			}
+			std::cout << "=================================\n";
+			std::this_thread::sleep_for(std::chrono::seconds(3));
+			modbus_reply(ctx_, query_, ret, mapping_);
+		}
+		else
+		{
+			modbus_reply_exception(ctx_, query_, MODBUS_EXCEPTION_ILLEGAL_DATA_ADDRESS);
+		}
+	}
+
+	void handleWriteMultipleRegisters(uint16_t startAddress, uint16_t endAddress)
+	{
+		if (startAddress >= 0 && startAddress < MD_REGISTERS_MAX)
+		{
+			for (int i = 0; i < endAddress; i++)
+			{
+				int registerValue = mapping_->tab_registers[startAddress + i];
+				std::cout << "Register " << startAddress + i << ": " << registerValue << std::endl;
+			}
+			std::cout << "=================================\n";
+			std::this_thread::sleep_for(std::chrono::seconds(3));
+			modbus_reply(ctx_, query_, ret, mapping_);
+		}
+		else
+		{
+			modbus_reply_exception(ctx_, query_, MODBUS_EXCEPTION_ILLEGAL_DATA_ADDRESS);
+		}
+	}
 };
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+//class ModbusSlave
+//{
+//private:
+//	modbus_t* context;
+//	uint8_t* queryBuffer;
+//	modbus_mapping_t* mapping;
+//	const uint16_t registersNbMax;
+//	const uint8_t serverId;
+//
+//	/// <summary>
+//	/// 写入数据到寄存器,
+//	/// 对应主机功能码为度寄存器(03),主机是读,这里就是写
+//	/// </summary>
+//	/// <param name="startAddress"></param>
+//	/// <param name="mapping"></param>
+//	void writeHoldingRegisters(uint16_t startAddress, modbus_mapping_t* mapping)
+//	{
+//		if (startAddress >= 0 && startAddress < registersNbMax)
+//		{
+//			modbus_reply(context, queryBuffer, 8, mapping);
+//		}
+//		else
+//		{
+//			modbus_reply_exception(context, queryBuffer, MODBUS_EXCEPTION_ILLEGAL_DATA_ADDRESS);
+//		}
+//	}
+//
+//	// 预留的函数框架
+//	void writeCoil(uint16_t startAddress, bool value)
+//	{
+//
+//	}
+//
+//	uint16_t readHoldingRegister(uint16_t registerAddress)
+//	{
+//		// 实现读寄存器功能
+//		return 0;
+//	}
+//
+//	bool readDiscreteInput(uint16_t inputAddress)
+//	{
+//		// 实现读线圈功能
+//		return false;
+//	}
+//
+//public:
+//
+//	ModbusSlave(uint8_t serverId, uint16_t registersNbMax)
+//		: serverId(serverId), registersNbMax(registersNbMax), context(nullptr), queryBuffer(nullptr), mapping(nullptr) {}
+//
+//	~ModbusSlave()
+//	{
+//		this->cleanup();
+//	}
+//
+//	void initialize(const char* port, int baudrate, char parity, int databits, int stopbits)
+//	{
+//		if (!context)
+//		{
+//			context = modbus_new_rtu(port, baudrate, parity, databits, stopbits);
+//			if (!context)
+//			{
+//				std::cout << "Failed to create Modbus context: " << modbus_strerror(errno) << std::endl;
+//				return;
+//			}
+//			modbus_set_slave(context, serverId);
+//			queryBuffer = (uint8_t*)malloc(MODBUS_RTU_MAX_ADU_LENGTH);
+//			if (!queryBuffer)
+//			{
+//				std::cout << "Failed to allocate memory for query buffer" << std::endl;
+//				return;
+//			}
+//			mapping = modbus_mapping_new(0, 0, registersNbMax, 0);
+//			if (!mapping)
+//			{
+//				std::cout << "Failed to allocate Modbus mapping: " << modbus_strerror(errno) << std::endl;
+//				return;
+//			}
+//			if (modbus_connect(context) == -1)
+//			{
+//				std::cout << "Connection failed: " << modbus_strerror(errno) << std::endl;
+//				return;
+//			}
+//		}
+//	}
+//
+//	void handleRequests()
+//	{
+//		while (true)
+//		{
+//			int ret = modbus_receive(context, queryBuffer);
+//			if (ret == -1)
+//			{
+//				std::cout << "Receive error: " << modbus_strerror(errno) << std::endl;
+//				break;
+//			}
+//			else
+//			{
+//				handleRequest(queryBuffer, ret);
+//			}
+//		}
+//	}
+//
+//	void handleRequest(uint8_t* request, int length)
+//	{
+//		if (length >= 8)
+//		{
+//
+//			//uint8_t functionCode = request[1];
+//			//uint16_t address = (request[2] << 8) | request[3];
+//
+//			uint8_t slaveId = request[0];
+//			uint8_t function_code = request[1]; // 获取Modbus功能码
+//			uint16_t startAddress = (request[2] << 8) | request[3]; // 获取寄存器地址
+//			uint16_t endAddress = (request[4] << 8) | request[5]; // 获取写入的值
+//			uint16_t crc = (request[6] << 8) | request[7]; // 获取写入的值
+//
+//			for (int i = 1; i <= registersNbMax; i++)
+//			{
+//				mapping->tab_registers[i - 1] = i;
+//			}
+//
+//			switch (function_code)
+//			{
+//			case MODBUS_FC_READ_COILS:
+//				// 调用writeCoil函数
+//
+//				break;
+//			case MODBUS_FC_READ_HOLDING_REGISTERS:   // 主机是03读取寄存器,这里就应该是写寄存器 
+//				writeHoldingRegisters(startAddress, mapping);
+//				break;
+//			case MODBUS_FC_WRITE_SINGLE_REGISTER:
+//				// 调用readHoldingRegister函数
+//				break;
+//			case MODBUS_FC_READ_DISCRETE_INPUTS:
+//				// 调用readDiscreteInput函数
+//				break;
+//			default:
+//				modbus_reply_exception(context, request, MODBUS_EXCEPTION_ILLEGAL_FUNCTION);
+//				break;
+//			}
+//		}
+//	}
+//
+//	void cleanup()
+//	{
+//		if (mapping)
+//		{
+//			modbus_mapping_free(mapping);
+//		}
+//		if (queryBuffer)
+//		{
+//			free(queryBuffer);
+//		}
+//		if (context)
+//		{
+//			modbus_close(context);
+//			modbus_free(context);
+//		}
+//	}
+//
+//};
 
 
 
