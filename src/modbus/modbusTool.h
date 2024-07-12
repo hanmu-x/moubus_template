@@ -2,9 +2,13 @@
 #include <iostream>
 #include <string>
 #include <vector>
+
 #include <chrono> // 操作时间
 #include <thread>
+
 #include <modbus.h>
+#include <errno.h>
+
 
 
 /* 高阶字节CRC值表 */
@@ -151,7 +155,7 @@ public:
 			// 写入数据到寄存器
 			for (int i = 0; i < num_regs; ++i)
 			{
-				tab_reg[i] = i + 1; // 模拟写入数据，这里写入了1到10
+				tab_reg[i] = std::rand() % 100; // 随机生成; // 模拟写入数据
 			}
 
 			int rc = modbus_write_registers(ctx, start_addr, num_regs, tab_reg);
@@ -164,13 +168,14 @@ public:
 			std::cout << "Registers written successfully." << std::endl;
 
 			// 可选：等待一段时间后再次写入
-			std::this_thread::sleep_for(std::chrono::seconds(3));
+			std::this_thread::sleep_for(std::chrono::seconds(1));
 		}
 	}
 
 	/// <summary>
 	/// 主模式 读取从机寄存器数据
 	/// 查看使用 modbus slave: 
+	///     Slave Definition:(功能码)03:Holding Register(04)
 	/// </summary>
 	/// <param name="slave_id">Modbus从机地址</param>
 	/// <param name="start_addr">起始寄存器地址</param>
@@ -206,20 +211,20 @@ public:
 			}
 
 			// 可选：等待一段时间后再次读取
-			std::this_thread::sleep_for(std::chrono::seconds(3));
+			std::this_thread::sleep_for(std::chrono::seconds(2));
 		}
 	}
 
 	/// <summary>
 	/// 主模式 写入线圈数据到从机线圈
-	/// 查看使用 modbus slave: 
+	/// 查看使用 modbus slave: 01 Clil Status (0x)
 	/// </summary>
 	/// <param name="slave_id"></param>
 	/// <param name="coil_addr"></param>
 	/// <param name="num_coils"></param>
 	void pollWriteCoils(int slave_id, int coil_addr, int num_coils)
 	{
-		uint8_t tab_coils[5] = { 1, 0, 1, 1, 0 }; // 示例数据
+		uint8_t tab_coils[20] ; // 示例数据
 		// 打开串口设备
 		if (modbus_connect(ctx) == -1)
 		{
@@ -231,6 +236,10 @@ public:
 		modbus_set_slave(ctx, slave_id);
 		while (true)
 		{
+			for (int i = 0; i < 10; ++i)
+			{
+				tab_coils[i] = std::rand() % 2; // 随机生成
+			}
 			// 写入线圈数据
 			int rc = modbus_write_bits(ctx, coil_addr, num_coils, tab_coils);
 			if (rc == -1)
@@ -255,7 +264,7 @@ public:
 
 	/// <summary>
 	/// 主模式 读取从机线圈数据
-	/// 查看使用 modbus slave: 
+	/// 查看使用 modbus slave: 查看使用 modbus slave: 01 Clil Status (0x)
 	/// </summary>
 	/// <param name="slave_id">Modbus从机地址</param>
 	/// <param name="start_addr">起始线圈地址</param>
@@ -288,7 +297,7 @@ public:
 			}
 
 			// 可选：等待一段时间后再次读取
-			std::this_thread::sleep_for(std::chrono::seconds(3));
+			std::this_thread::sleep_for(std::chrono::seconds(1));
 		}
 
 		//// 关闭Modbus连接
@@ -355,7 +364,7 @@ public:
 
 	void initialize(const char* port, int baudrate, char parity, int databits, int stopbits)
 	{
-		//    ctx = modbus_new_rtu("COM6", 9600, 'N', 8, 1);
+		// ctx = modbus_new_rtu("COM6", 9600, 'N', 8, 1);
 		ctx_ = modbus_new_rtu(port, baudrate, parity, databits, stopbits);
 		if (!ctx_)
 		{
@@ -440,7 +449,7 @@ private:
 		{
 			for (int i = 0; i < 10; ++i)
 			{
-				mapping_->tab_bits[startAddress + i] = i % 2;
+				mapping_->tab_bits[startAddress + i] = std::rand() % 2; // 随机生成
 			}
 			modbus_reply(ctx_, query_, ret, mapping_);
 		}
@@ -456,7 +465,7 @@ private:
 		{
 			for (int i = 1; i <= MD_REGISTERS_MAX; i++)
 			{
-				mapping_->tab_registers[i - 1] = i;
+				mapping_->tab_registers[i - 1] = std::rand() % 30; // 随机生成
 			}
 			modbus_reply(ctx_, query_, ret, mapping_);
 		}
@@ -470,6 +479,7 @@ private:
 	{
 		if (startAddress >= 0 && startAddress < MD_COILS_MAX)
 		{
+
 			modbus_reply(ctx_, query_, ret, mapping_);
 			for (int i = 0; i < endAddress; i++)
 			{
@@ -477,7 +487,7 @@ private:
 				std::cout << "Coil " << startAddress + i << ": " << bitValue << std::endl;
 			}
 			std::cout << "=================================\n";
-			std::this_thread::sleep_for(std::chrono::seconds(3));
+			//std::this_thread::sleep_for(std::chrono::seconds(3));
 		}
 		else
 		{
@@ -496,7 +506,7 @@ private:
 				std::cout << "Register " << startAddress + i << ": " << registerValue << std::endl;
 			}
 			std::cout << "=================================\n";
-			std::this_thread::sleep_for(std::chrono::seconds(3));
+			//std::this_thread::sleep_for(std::chrono::seconds(3));
 		}
 		else
 		{

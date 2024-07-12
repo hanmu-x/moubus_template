@@ -3,34 +3,80 @@
 #include "modbus/config.hpp"
 
 #include <filesystem>
-
 #include <iostream>
-#include <modbus.h>
-#include <errno.h>
 
 
 
-#include <thread>
-#include <chrono> // 操作时间
-
-// 从机测试
-int main() 
+// // 主机模式测试
+int main()
 {
-    // 创建ModbusSlave实例，服务器ID为1，最多有100个寄存器
-    ModbusSlave slave(1, 100);
+    try
+    {
+        const int slave_id = 1;   // Modbus从机地址
+        const int start_addr = 0; // 起始寄存器地址
+        const int num_regs = 10;  // 要读取或写入的寄存器数量
+        ModbusPoll tool("COM6", 9600, 'N', 8, 1);
 
-    // 初始化Modbus上下文，连接到串口"COM6"，波特率9600，数据位8，无奇偶校验，停止位1
-    slave.initialize("COM6", 9600, 'N', 8, 1);
+        //// 写线圈
+        //tool.pollWriteCoils(slave_id, 0, 10);
 
-    slave.start();
-    // Keep the program running until interrupted.
-    std::cin.get();
-    slave.stop();
+        //// 主模式 写入数据到从机寄存器
+        //tool.pollWriteRegisters(slave_id, start_addr, num_regs);
+        
+        // 读取线圈示例
+        //tool.pollReadCoils(slave_id, 0, 10); // 读取从地址 0 开始的 5 个线圈
+
+
+        // 主模式 读取从机寄存器数据
+        tool.pollReadRegisters(slave_id, start_addr, num_regs);
+        ////Registers read :
+        ////Register 0 : 1
+        ////Register 1 : 2
+        ////Register 2 : 3
+        ////Register 3 : 4
+        ////Register 4 : 5
+        ////Register 5 : 6
+        ////Register 6 : 7
+        ////Register 7 : 8
+        ////Register 8 : 9
+        ////Register 9 : 10
+
+    }
+    catch (const std::exception& e)
+    {
+        std::cout << "Exception caught: " << e.what() << std::endl;
+        return 1;
+    }
 
     return 0;
 }
 
 
+
+
+
+// // 从机测试
+//int main() 
+//{
+//    // 创建ModbusSlave实例，服务器ID为1，最多有100个寄存器
+//    ModbusSlave slave(1, 100);
+//
+//    // 初始化Modbus上下文，连接到串口"COM6"，波特率9600，数据位8，无奇偶校验，停止位1
+//    slave.initialize("COM6", 9600, 'N', 8, 1);
+//
+//    slave.start();
+//    // Keep the program running until interrupted.
+//    std::cin.get();
+//    slave.stop();
+//
+//    return 0;
+//}
+
+
+
+
+
+////从机模式代码
 //#define SERVER_ID 1
 //#define MD_COILS_MAX 10
 //#define MD_INPUT_COILS_MAX 10
@@ -206,52 +252,6 @@ int main()
 
 
 
-
-
-
-// 主机模式测试
-//int main()
-//{
-//    try
-//    {
-//        const int slave_id = 1;   // Modbus从机地址
-//        const int start_addr = 0; // 起始寄存器地址
-//        const int num_regs = 10;  // 要读取或写入的寄存器数量
-//        ModbusPoll tool("COM6", 9600, 'N', 8, 1);
-//
-//        // 写线圈
-//        tool.pollWriteCoils(slave_id, 0, 5);
-//
-//        // 读取线圈示例
-//        uint8_t read_tab_coils[5]; // 读取结果存储数组
-//        //tool.pollReadCoils(slave_id, 0, 5); // 读取从地址 0 开始的 5 个线圈
-//
-//        //// 主模式 写入数据到从机寄存器
-//        //tool.pollWriteRegisters(slave_id, start_addr, num_regs);
-//
-//        //// 主模式 读取从机寄存器数据
-//        //tool.pollReadRegisters(slave_id, start_addr, num_regs);
-//        ////Registers read :
-//        ////Register 0 : 1
-//        ////Register 1 : 2
-//        ////Register 2 : 3
-//        ////Register 3 : 4
-//        ////Register 4 : 5
-//        ////Register 5 : 6
-//        ////Register 6 : 7
-//        ////Register 7 : 8
-//        ////Register 8 : 9
-//        ////Register 9 : 10
-//
-//    }
-//    catch (const std::exception& e)
-//    {
-//        std::cout << "Exception caught: " << e.what() << std::endl;
-//        return 1;
-//    }
-//
-//    return 0;
-//}
 
 
 
