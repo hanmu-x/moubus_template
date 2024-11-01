@@ -2,14 +2,10 @@ cmake_minimum_required (VERSION 3.15)
 
 project(modbus_test CXX)
 
-add_subdirectory(modbus)
-
-link_libraries(modbus_lib)
-
 
 add_executable(${PROJECT_NAME}  "main.cpp" )
+target_link_libraries(${PROJECT_NAME} PUBLIC modbus_lib)
 
-#target_link_libraries(${PROJECT_NAME} PUBLIC sutils)
 
 
 

@@ -1,6 +1,5 @@
 
 #include "modbus/modbusTool.h"
-#include "modbus/config.hpp"
 
 #include <filesystem>
 #include <iostream>
