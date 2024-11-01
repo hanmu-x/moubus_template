@@ -73,23 +73,14 @@ static const uint8_t table_crc_lo[] = {
 	0x43, 0x83, 0x41, 0x81, 0x80, 0x40
 };
 
-static uint16_t crc16(uint8_t* buffer, uint16_t buffer_length)
-{
-	uint8_t crc_hi = 0xFF;	/*已初始化高CRC字节*/
-	uint8_t crc_lo = 0xFF;	/*低CRC字节已初始化*/
-	unsigned int i;			/*将索引到CRC查找中*/
+/// <summary>
+/// crc校验
+/// </summary>
+/// <param name="buffer"></param>
+/// <param name="buffer_length"></param>
+/// <returns></returns>
+static uint16_t crc16(uint8_t* buffer, uint16_t buffer_length);
 
-	/* pass through message buffer */
-	while (buffer_length--) 
-	{
-		i = crc_hi ^ *buffer++; /* calculate the CRC  */
-		crc_hi = crc_lo ^ table_crc_hi[i];
-		crc_lo = table_crc_lo[i];
-	}
-
-	uint16_t res_crc = (crc_hi << 8 | crc_lo);
-	return res_crc;
-}
 
 
 /// <summary>
@@ -136,41 +127,7 @@ public:
 	/// <param name="slave_id">Modbus从机地址</param>
 	/// <param name="start_addr">起始寄存器地址</param>
 	/// <param name="num_regs">要读取或写入的寄存器数量</param>
-	void pollWriteRegisters(int slave_id, int start_addr, int num_regs)
-	{
-		uint16_t tab_reg[32];     // 用于存储读取到的寄存器数据
-		// 打开串口设备
-		if (modbus_connect(ctx) == -1)
-		{
-			std::cout << "Connection failed: " << modbus_strerror(errno) << std::endl;
-			throw std::runtime_error("Connection failed");
-		}
-
-		// 设置从机地址
-		modbus_set_slave(ctx, slave_id);
-
-		// 循环写入寄存器数据
-		while (true)
-		{
-			// 写入数据到寄存器
-			for (int i = 0; i < num_regs; ++i)
-			{
-				tab_reg[i] = std::rand() % 100; // 随机生成; // 模拟写入数据
-			}
-
-			int rc = modbus_write_registers(ctx, start_addr, num_regs, tab_reg);
-			if (rc == -1)
-			{
-				std::cout << "Write registers failed: " << modbus_strerror(errno) << std::endl;
-				continue; // 跳出循环或者处理错误
-			}
-
-			std::cout << "Registers written successfully." << std::endl;
-
-			// 可选：等待一段时间后再次写入
-			std::this_thread::sleep_for(std::chrono::seconds(1));
-		}
-	}
+	void pollWriteRegisters(int slave_id, int start_addr, int num_regs);
 
 	/// <summary>
 	/// 主模式 读取从机寄存器数据
@@ -180,40 +137,7 @@ public:
 	/// <param name="slave_id">Modbus从机地址</param>
 	/// <param name="start_addr">起始寄存器地址</param>
 	/// <param name="num_regs">要读取或写入的寄存器数量</param>
-	void pollReadRegisters(int slave_id, int start_addr, int num_regs)
-	{
-		uint16_t tab_reg[32];     // 用于存储读取到的寄存器数据
-		// 打开串口设备
-		if (modbus_connect(ctx) == -1)
-		{
-			std::cout << "Connection failed: " << modbus_strerror(errno) << std::endl;
-			throw std::runtime_error("Connection failed");
-		}
-
-		// 设置从机地址
-		modbus_set_slave(ctx, slave_id);
-
-		// 循环读取寄存器数据
-		while (true)
-		{
-			int rc = modbus_read_registers(ctx, start_addr, num_regs, tab_reg);
-			if (rc == -1)
-			{
-				std::cout << "Read registers failed: " << modbus_strerror(errno) << std::endl;
-				continue; // 跳出循环或者处理错误
-			}
-
-			// 打印读取到的寄存器数据
-			std::cout << "Registers read:" << std::endl;
-			for (int i = 0; i < num_regs; ++i)
-			{
-				std::cout << "Register " << start_addr + i << ": " << tab_reg[i] << std::endl;
-			}
-
-			// 可选：等待一段时间后再次读取
-			std::this_thread::sleep_for(std::chrono::seconds(2));
-		}
-	}
+	void pollReadRegisters(int slave_id, int start_addr, int num_regs);
 
 	/// <summary>
 	/// 主模式 写入线圈数据到从机线圈
@@ -222,44 +146,7 @@ public:
 	/// <param name="slave_id"></param>
 	/// <param name="coil_addr"></param>
 	/// <param name="num_coils"></param>
-	void pollWriteCoils(int slave_id, int coil_addr, int num_coils)
-	{
-		uint8_t tab_coils[20] ; // 示例数据
-		// 打开串口设备
-		if (modbus_connect(ctx) == -1)
-		{
-			std::cout << "Connection failed: " << modbus_strerror(errno) << std::endl;
-			modbus_free(ctx);
-		}
-
-		// 设置从机地址
-		modbus_set_slave(ctx, slave_id);
-		while (true)
-		{
-			for (int i = 0; i < 10; ++i)
-			{
-				tab_coils[i] = std::rand() % 2; // 随机生成
-			}
-			// 写入线圈数据
-			int rc = modbus_write_bits(ctx, coil_addr, num_coils, tab_coils);
-			if (rc == -1)
-			{
-				std::cout << "Write coil failed: " << modbus_strerror(errno) << std::endl;
-			}
-			else
-			{
-				std::cout << "Registers written successfully." << std::endl;
-			}
-
-			// 等待一段时间后再关闭连接
-			std::this_thread::sleep_for(std::chrono::seconds(1));
-
-		}
-
-		//// 关闭Modbus连接
-		//modbus_close(ctx);
-		//modbus_free(ctx);
-	}
+	void pollWriteCoils(int slave_id, int coil_addr, int num_coils);
 
 
 	/// <summary>
@@ -269,41 +156,7 @@ public:
 	/// <param name="slave_id">Modbus从机地址</param>
 	/// <param name="start_addr">起始线圈地址</param>
 	/// <param name="num_coils">要读取或写入的线圈数量</param>
-	void pollReadCoils(int slave_id, int coil_addr, int num_coils)
-	{
-		uint8_t tab_coils[20];
-		// 打开串口设备
-		if (modbus_connect(ctx) == -1) {
-			std::cout << "Connection failed: " << modbus_strerror(errno) << std::endl;
-			modbus_free(ctx);
-		}
-
-		// 设置从机地址
-		modbus_set_slave(ctx, slave_id);
-
-		// 循环读取线圈数据
-		while (true) {
-			int rc = modbus_read_bits(ctx, coil_addr, num_coils, tab_coils);
-			if (rc == -1)
-			{
-				std::cout << "Read bits failed: " << modbus_strerror(errno) << std::endl;
-				continue; // 跳出循环或者处理错误
-			}
-
-			// 打印读取到的线圈数据
-			std::cout << "Coils read:" << std::endl;
-			for (int i = 0; i < num_coils; ++i) {
-				std::cout << "Coil " << coil_addr + i << ": " << static_cast<int>(tab_coils[i]) << std::endl;
-			}
-
-			// 可选：等待一段时间后再次读取
-			std::this_thread::sleep_for(std::chrono::seconds(1));
-		}
-
-		//// 关闭Modbus连接
-		//modbus_close(ctx);
-		//modbus_free(ctx);
-	}
+	void pollReadCoils(int slave_id, int coil_addr, int num_coils);
 
 
 
@@ -317,6 +170,9 @@ public:
 #define MD_REGISTERS_MAX 10
 #define MD_INPUT_REGISTERS_MAX 10
 
+/// <summary>
+/// modbus 从机模式
+/// </summary>
 class ModbusSlave
 {
 private:
@@ -362,6 +218,14 @@ public:
 		}
 	}
 
+	/// <summary>
+	/// 
+	/// </summary>
+	/// <param name="port"></param>
+	/// <param name="baudrate"></param>
+	/// <param name="parity"></param>
+	/// <param name="databits"></param>
+	/// <param name="stopbits"></param>
 	void initialize(const char* port, int baudrate, char parity, int databits, int stopbits)
 	{
 		// ctx = modbus_new_rtu("COM6", 9600, 'N', 8, 1);
@@ -495,6 +359,7 @@ private:
 		}
 	}
 
+
 	void handleWriteMultipleRegisters(uint16_t startAddress, uint16_t endAddress)
 	{
 		if (startAddress >= 0 && startAddress < MD_REGISTERS_MAX)
@@ -517,6 +382,24 @@ private:
 
 
 
+
+static uint16_t crc16(uint8_t* buffer, uint16_t buffer_length)
+{
+	uint8_t crc_hi = 0xFF;	/*已初始化高CRC字节*/
+	uint8_t crc_lo = 0xFF;	/*低CRC字节已初始化*/
+	unsigned int i;			/*将索引到CRC查找中*/
+
+	/* pass through message buffer */
+	while (buffer_length--)
+	{
+		i = crc_hi ^ *buffer++; /* calculate the CRC  */
+		crc_hi = crc_lo ^ table_crc_hi[i];
+		crc_lo = table_crc_lo[i];
+	}
+
+	uint16_t res_crc = (crc_hi << 8 | crc_lo);
+	return res_crc;
+}
 
 
 
