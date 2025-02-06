@@ -2,6 +2,7 @@
 
 modbus通讯协议模板
 
+该demo使用的 libmodbus 库 这里使用vcpkg安装的 vcpkg install libmodbus
 
 
 - Modbus 主从模式：
